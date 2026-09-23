@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.13', '3.14+gil', '3.14t']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: '0.12.15'
+          python-version: ${{ matrix.python }}
+          enable-cache: false
+      # uv 0.12.15 can select +gil but does not download that variant spelling.
+      - name: Bootstrap standard Python 3.14
+        if: matrix.python == '3.14+gil'
+        run: uv python install 3.14
+      - run: uv sync --locked
+      - name: Record interpreter
+        run: uv run --locked python -c "import platform, sys, sysconfig; print(sys.version); print(platform.platform()); print('Py_GIL_DISABLED:', sysconfig.get_config_var('Py_GIL_DISABLED')); print('GIL enabled:', getattr(sys, '_is_gil_enabled', lambda: True)())"
+      - name: Require GIL-enabled runtime
+        if: ${{ !endsWith(matrix.python, 't') }}
+        run: uv run --locked python -c "import sys; assert getattr(sys, '_is_gil_enabled', lambda: True)()"
+      - name: Require free-threaded runtime
+        if: endsWith(matrix.python, 't')
+        run: uv run --locked python -c "import sys; assert not sys._is_gil_enabled()"
+      - run: uv run --locked coverage run -m pytest -q -m "not stress" --junitxml=results/ci/pytest.xml
+      - run: uv run --locked coverage report --fail-under=99
+      - run: uv run --locked coverage json -o results/ci/coverage.json
+      - run: uv run --locked python tools/stress.py --quick --output results/ci/stress-quick.json
+      - run: uv run --locked python examples/basic.py
+      - run: uv run --locked python examples/records.py
+      - run: uv run --locked python examples/synchronized.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: checks-${{ matrix.os }}-${{ matrix.python }}
+          path: results/ci/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  quality-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: '0.12.15'
+          python-version: '3.14+gil'
+          enable-cache: false
+      - run: uv python install 3.14
+      - run: uv sync --locked
+      - run: uv lock --check
+      - run: uv run --locked ruff check src examples tests tools benchmarks
+      - run: uv run --locked ruff format --check src examples tests tools benchmarks
+      - run: uv run --locked mypy
+      - run: uv run --locked pytest -q -m stress
+      - run: uv run --locked python tools/stress.py --output results/ci/stress-full.json
+      - run: uv build --no-create-gitignore --out-dir dist/candidate
+      - run: uv run --locked twine check --strict dist/candidate/*
+      - run: uv run --locked python tools/verify_dist.py dist/candidate > results/ci/artifact-verification.json
+      - name: Require publication guard
+        run: |
+          uv run --locked python -c "import pathlib, tomllib; p=tomllib.loads(pathlib.Path('pyproject.toml').read_text()); assert 'Private :: Do Not Upload' in p['project']['classifiers']; assert p['tool']['ordered-btree']['release']['publication-approved'] is False"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: source-and-build-checks
+          path: |
+            dist/candidate/
+            results/ci/
+          if-no-files-found: ignore
+          retention-days: 14

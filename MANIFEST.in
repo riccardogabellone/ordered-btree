@@ -1,0 +1,17 @@
+include README.md CHANGELOG.md LICENSE CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md
+include pyproject.toml MANIFEST.in uv.lock .python-version
+recursive-include src *.py py.typed
+recursive-include docs *.md
+recursive-include examples *.py
+recursive-include tests *.py
+recursive-include tools *.py
+recursive-include benchmarks *.py
+prune .github
+prune .local
+prune .claude
+prune results
+prune artifacts
+prune dist
+exclude AGENTS.md CLAUDE.md SHA256SUMS
+exclude .env .env.* .pypirc .netrc
+global-exclude __pycache__ *.py[cod] *.pem *.key

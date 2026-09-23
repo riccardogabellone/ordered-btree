@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ordered-btree"
+version = "0.1.0a1"
+description = "A typed generic ordered-key B-tree with encapsulated mutation and fail-fast iterators"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+keywords = ["btree", "b-tree", "ordered-set", "data-structures", "typing"]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Riccardo Gabellone"}]
+# Public repository creation and package publication are not yet authorized.
+# Remove the Private classifier only after completing docs/releasing.md.
+classifiers = [
+    "Private :: Do Not Upload",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<10",
+    "coverage[toml]>=7.6,<8",
+    "hypothesis>=6.120,<7",
+    "ruff>=0.11,<1",
+    "mypy>=1.15,<2",
+    "build>=1.2,<2",
+    "twine>=6,<7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ordered_btree = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["stress: larger deterministic/exhaustive workloads"]
+
+[tool.coverage.run]
+branch = true
+source = ["ordered_btree"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "examples", "tests/typecheck_usage.py"]
+
+[tool.uv]
+required-version = ">=0.12.15"
+
+# This standalone project must not inherit a workspace from a parent checkout.
+[tool.uv.workspace]
+members = []
+
+[tool.ordered-btree.release]
+name-confirmed = true
+publication-approved = false

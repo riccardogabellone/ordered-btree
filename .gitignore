@@ -1,0 +1,44 @@
+# Python environments, caches, and build products
+.venv*/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.coverage*
+htmlcov/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.ty_cache/
+
+# Run-specific evidence and delivery artifacts; summaries live in docs/.
+results/
+artifacts/
+SHA256SUMS
+
+# Local agent instructions and working notes are not repository content.
+AGENTS.md
+CLAUDE.md
+.claude/
+.codex/
+.local/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+.pypirc
+.netrc
+*.pem
+*.key
+
+# Editor/OS state
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
