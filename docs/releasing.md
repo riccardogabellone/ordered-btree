@@ -164,12 +164,19 @@ A stale partial index response may cause an upload conflict; that fails safely,
 then another same-run retry can observe the files. No mismatched file is silently
 accepted. Index absence does not reserve a name or grant ownership.
 
-Visibility checks make at most 12 attempts, with five-second delays and 30-second
-network timeouts. Missing files/404 and transient 429/5xx/network failures can be
-retried; invalid metadata, unsafe URLs and hash conflicts are not retried.
-Only official HTTPS JSON/file hosts and credential-free URLs are accepted.
-Job timeouts bound the complete verification, including installation. Persistent
-outages stop the workflow without undoing completed uploads.
+Before upload, an exact-version 404 immediately means a new release with no indexed
+files; staging does not wait five minutes. Other staging 429/5xx/network failures
+retain 12 attempts with five-second delays. After upload, exact-version 404,
+incomplete file lists and those same transient failures poll every five seconds
+against one five-minute monotonic deadline. That deadline is set once, never per
+retry. A request started just before it can finish through the existing 30-second
+network timeout, so exhaustion can take up to about five minutes 30 seconds.
+Distribution downloads separately retain 12 attempts with five-second delays.
+Invalid metadata, unsafe URLs, permanent HTTP failures and hash/size conflicts fail
+immediately. Exhaustion reports the last safe transient status/cause. Only official
+HTTPS JSON/file hosts and credential-free URLs are accepted. Job timeouts bound the
+complete verification, including installation. Persistent outages stop the
+workflow without undoing completed uploads.
 
 If final GitHub release creation was interrupted or the release already exists,
 inspect the release and exact asset digests before any manual repair; the workflow
