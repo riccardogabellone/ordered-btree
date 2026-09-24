@@ -1,6 +1,11 @@
 # Executed validation and limits
 
-## Candidate record — 2026-09-23 UTC
+## Dated local candidate record — 2026-09-23 UTC
+
+This record predates the public 0.1.0 release preparation. It remains evidence
+for the unchanged runtime, not a claim that the new release workflow ran or that
+packages are available on an index. Current release gates are described in
+[releasing](releasing.md).
 
 This record describes executed checks, not merely a configured workflow. The
 runtime, tests and verification tools were copied into isolated source directories;
@@ -131,9 +136,11 @@ ordinary and free-threaded builds rather than trusting a version label.
 - Invalid comparator laws, ordering mutations, allocation failure and asynchronous
   interruption are outside the documented guarantees.
 - Wall-clock measurements are shared-machine observations, not performance promises.
-- Public repository creation/settings, live metadata/README URLs, index ownership
-  and separate TestPyPI/PyPI authorization remain outstanding. No remote creation,
-  push, tag, release or package upload was performed.
+- At that run's date, public repository setup, live metadata/README URLs, index
+  ownership and separate TestPyPI/PyPI authorization were outstanding. That local
+  validation run performed no remote creation, push, tag, release or package upload.
 
-The result is local verification of an identified alpha candidate, not approval
-or proof of publication. Follow [releasing](releasing.md) before changing gates.
+Those results establish local verification of an identified candidate, not proof
+of publication. The subsequent 0.1.0 preparation has live GitHub metadata and a
+positive local release preflight; it does not retroactively turn this record into
+remote CI evidence. Follow [releasing](releasing.md) for the current gates.

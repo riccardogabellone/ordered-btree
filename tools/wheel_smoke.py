@@ -63,7 +63,7 @@ def safe_member_name(name: str) -> str:
 
 def project_metadata(project: Path) -> dict[str, Any]:
     with (project / "pyproject.toml").open("rb") as stream:
-        metadata = tomllib.load(stream)["project"]
+        metadata: dict[str, Any] = tomllib.load(stream)["project"]
     require(metadata["name"] == "ordered-btree", "expected the ordered-btree project")
     require(re.fullmatch(r"[0-9][A-Za-z0-9.!+]*", metadata["version"]), "unsafe project version")
     require(not metadata.get("dependencies"), "project must have no runtime dependencies")
@@ -93,6 +93,7 @@ def metadata_expectations(project: Path) -> dict[str, list[str]]:
         "Classifier": metadata.get("classifiers", []),
         "Requires-Dist": [],
         "Provides-Extra": [],
+        "Project-URL": [f"{label}, {url}" for label, url in metadata.get("urls", {}).items()],
     }
     for role in ("Author", "Maintainer"):
         people = metadata.get(f"{role.lower()}s", [])
@@ -228,13 +229,24 @@ def inspect_wheel(wheel: Path, project: Path) -> dict[str, Any]:
 
 
 def clean_environment() -> dict[str, str]:
-    """Do not inherit editable paths, pip/uv target overrides, or uv project settings."""
-    return {
-        key: value
-        for key, value in os.environ.items()
-        if not key.upper().startswith(("PYTHON", "PIP_", "UV_"))
-        and key.upper() not in {"VIRTUAL_ENV", "VIRTUAL_ENV_PROMPT", "CONDA_PREFIX"}
+    """Allow only OS plumbing; no inherited credentials, proxies or installer overrides."""
+    allowed = {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "HOME",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "LANG",
+        "LC_ALL",
     }
+    return {key: value for key, value in os.environ.items() if key.upper() in allowed}
 
 
 def run_command(command: list[str], cwd: Path, commands: list[dict[str, Any]]) -> str:

@@ -2,12 +2,15 @@
 
 A pure-Python, typed, generic **ordered collection of unique keys**, with a B-tree
 storage engine. Python **3.12+**, including Python 3.14. No runtime dependencies.
-Licensed under [MIT](LICENSE).
+Licensed under [MIT](https://github.com/riccardogabellone/ordered-btree/blob/main/LICENSE).
 
-The distribution is `ordered-btree`; the import is `ordered_btree`. This is an
-unpublished alpha. Install from source or a locally built wheel, not by querying
-PyPI for this name. Package publication is explicitly gated; see
-[releasing](docs/releasing.md).
+The distribution is `ordered-btree`; the import is `ordered_btree`. Version
+**0.1.0** is prepared as the initial public release. This is a **pre-1.0 API**:
+pin a tested version and review the changelog before upgrading. Check
+[GitHub releases](https://github.com/riccardogabellone/ordered-btree/releases)
+for completed releases and their PyPI links; a source checkout is not proof of
+publication. See [releasing](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/releasing.md)
+for the TestPyPI verification and production-approval gates.
 
 ## Highlights
 
@@ -20,14 +23,22 @@ PyPI for this name. Package publication is explicitly gated; see
 - Tests, fault injection, exhaustive/randomized stress, deterministic benchmarks,
   wheel/sdist packaging, `py.typed`, and CI configuration.
 
-**Validation:** see [the validation record](docs/validation.md) for exact executed
+**Validation:** see [the validation record](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/validation.md) for exact executed
 runtimes, commands, results and limitations. Configured CI is not evidence that a
-remote run has completed. See [contributing](CONTRIBUTING.md) for development and
-[security](SECURITY.md) for the security policy.
+remote run has completed. See [contributing](https://github.com/riccardogabellone/ordered-btree/blob/main/CONTRIBUTING.md) for development and
+[security](https://github.com/riccardogabellone/ordered-btree/blob/main/SECURITY.md) for the security policy.
 
-## Install from the project directory
+## Installation
 
-Use [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.12.15 or newer.
+After the version is published and verified on
+[PyPI](https://pypi.org/project/ordered-btree/), applications can install it with:
+
+```bash
+python -m pip install ordered-btree==0.1.0
+```
+
+Until then, install from source or the verified local wheel below. For development,
+use [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.12.15 or newer.
 The following commands work from the project directory on Windows, Linux and
 macOS; no shell activation is needed:
 
@@ -42,16 +53,13 @@ To install just the library into a separate application environment:
 uv venv --python 3.14
 uv pip install /path/to/ordered-btree
 # Or install a locally built wheel without runtime dependencies:
-uv pip install --no-deps /path/to/ordered_btree-0.1.0a1-py3-none-any.whl
+uv pip install --no-deps /path/to/ordered_btree-0.1.0-py3-none-any.whl
 ```
 
 Ordinary `python -m pip install /path/to/ordered-btree` also works: uv is a
 contributor tool, not a requirement for applications using the library. Python
 3.12 and 3.13 remain supported. The project's Python pin selects a development
 default; it does not raise the minimum version.
-
-Do **not** run `uv pip install ordered-btree` expecting this unpublished project.
-A missing index listing does not reserve a name or establish ownership.
 
 ## Basic usage
 
@@ -219,7 +227,7 @@ can be read in callbacks. Callbacks may operate on a different tree.
 There is **no thread-safety guarantee**, with or without the GIL. The re-entrancy
 flag and iterator version are not locks. All callers sharing a mutable instance
 must use an external lock, including around reads and the entire consumption of
-an iterator. See [the synchronization example](examples/synchronized.py).
+an iterator. See [the synchronization example](https://github.com/riccardogabellone/ordered-btree/blob/main/examples/synchronized.py).
 
 ## Complexity and performance
 
@@ -246,7 +254,7 @@ and garbage collection. Keys and their callbacks may have additional costs.
 
 Faster asymptotics do not guarantee faster wall-clock performance for every
 workload. Fail-fast checks and Python iterator dispatch have a cost, particularly
-for full scans with large nodes. [Performance measurements](docs/performance.md)
+for full scans with large nodes. [Performance measurements](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/performance.md)
 record deterministic inputs, actual runtimes and limitations. Degree should be
 selected using your own comparator, key sizes, and operation mix.
 
@@ -285,7 +293,7 @@ uv run --locked python tools/verify_dist.py dist/candidate
 The artifact verifier checks metadata, archive contents, `py.typed` and hashes,
 installs the wheel in an external temporary uv environment, and independently
 rebuilds and exercises a wheel from the extracted sdist. Publication is a separate,
-intentional step; follow [the release checklist](docs/releasing.md).
+intentional step; follow [the release checklist](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/releasing.md).
 
 ## Project map
 
@@ -304,10 +312,10 @@ docs/                Design, compatibility, validation, performance and releases
 
 The library deliberately uses private mutable nodes, shallow immutable snapshots,
 first-wins ordering equivalence, fail-fast iteration, explicit external locking,
-`None` reserved, and Python 3.12+ compatibility. See [design](docs/design.md) and
-[compatibility](docs/migration.md) before depending on alpha API stability.
+`None` reserved, and Python 3.12+ compatibility. See [design](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/design.md) and
+[compatibility](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/migration.md) before depending on pre-1.0 API stability.
 
-The project is MIT licensed. The matching repository/distribution name is chosen,
-but remote repository creation and package publication have not been authorized.
-`Private :: Do Not Upload` remains in package metadata. Building and verifying
-local artifacts does not remove that safeguard.
+The project is MIT licensed. Publication uses the verified wheel/sdist pair from
+CI, first on TestPyPI and then on PyPI after the owner's production approval.
+Only completed remote runs and index checks establish publication; local checks
+do not claim that those steps have happened.

@@ -88,6 +88,93 @@ def write_wheel(path: Path, members: dict[str, bytes], *, record: bytes | None =
     return path
 
 
+PUBLIC_URLS = {
+    "Repository": "https://github.com/riccardogabellone/ordered-btree",
+    "Issues": "https://github.com/riccardogabellone/ordered-btree/issues",
+    "Documentation": "https://github.com/riccardogabellone/ordered-btree/tree/main/docs",
+    "Changelog": "https://github.com/riccardogabellone/ordered-btree/blob/main/CHANGELOG.md",
+}
+
+
+@pytest.mark.parametrize("change", ["exact", "missing", "wrong", "duplicate", "unexpected"])
+@pytest.mark.parametrize("archive_kind", ["wheel", "sdist"])
+def test_public_project_urls_are_exact(project: Path, change: str, archive_kind: str) -> None:
+    # Keep the private/alpha fixtures above independent of the live project metadata.
+    config = project / "pyproject.toml"
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            'classifiers = ["Private :: Do Not Upload"]', "classifiers = []"
+        )
+        + "\n[project.urls]\n"
+        + "".join(f'{label} = "{url}"\n' for label, url in PUBLIC_URLS.items()),
+        encoding="utf-8",
+    )
+    fields = [f"{label}, {url}" for label, url in PUBLIC_URLS.items()]
+    if change == "missing":
+        fields.pop()
+    elif change == "wrong":
+        fields[0] = "Repository, https://github.com/someone/another-project"
+    elif change == "duplicate":
+        fields.append(fields[0])
+    elif change == "unexpected":
+        fields.append("Homepage, https://example.com/")
+    data = wheel_members(project)[f"{INFO}/METADATA"].replace(
+        b"Classifier: Private :: Do Not Upload\n", b""
+    )
+    data = data.replace(
+        b"\n\n", ("\n" + "".join(f"Project-URL: {field}\n" for field in fields) + "\n").encode(), 1
+    )
+    if archive_kind == "wheel":
+        members = wheel_members(project)
+        members[f"{INFO}/METADATA"] = data
+        path = write_wheel(project.parent / f"{STEM}-py3-none-any.whl", members)
+
+        def check() -> None:
+            result = wheel_smoke.inspect_wheel(path, project)
+            assert result["metadata"]["Project-URL"] == [
+                f"{label}, {url}" for label, url in PUBLIC_URLS.items()
+            ]
+    else:
+        from tools import verify_dist
+
+        members = sdist_members(project)
+        members["PKG-INFO"] = data
+        path = write_sdist(project.parent / f"{STEM}.tar.gz", members)
+
+        def check() -> None:
+            with tarfile.open(path, "r:gz") as archive:
+                verify_dist.validate_sdist(archive, project)
+
+    if change == "exact":
+        check()
+    else:
+        with pytest.raises(ValueError, match="Project-URL"):
+            check()
+
+
+def test_install_environment_contains_no_inherited_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key in (
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+        "AWS_SECRET_ACCESS_KEY",
+        "ARBITRARY_SERVICE_SECRET",
+        "UV_INDEX",
+        "PIP_INDEX_URL",
+        "PYTHONPATH",
+        "VIRTUAL_ENV",
+        "HTTPS_PROXY",
+    ):
+        monkeypatch.setenv(key, "must-not-reach-clean-install")
+    monkeypatch.setenv("PATH", "required-for-uv")
+    env = wheel_smoke.clean_environment()
+    sentinel_survived = "must-not-reach-clean-install" in env.values()
+    assert not sentinel_survived, "inherited credentials reached the install environment"
+    assert env["PATH"] == "required-for-uv"
+
+
 def test_wheel_inspection_accepts_exact_package_and_checks_source(project: Path) -> None:
     wheel = write_wheel(project.parent / f"{STEM}-py3-none-any.whl", wheel_members(project))
     result = wheel_smoke.inspect_wheel(wheel, project)

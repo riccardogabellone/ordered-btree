@@ -1,6 +1,6 @@
 # Contributing
 
-This is an alpha, dependency-free Python library. Please read the
+This is a pre-1.0, dependency-free Python library. Please read the
 [design](docs/design.md) and [migration notes](docs/migration.md) before changing
 behavior. Contributions are provided under the [MIT license](LICENSE); include
 only material you have permission to contribute.
@@ -38,9 +38,10 @@ verification without `-O`, `-OO`, or `PYTHONOPTIMIZE`.
 The committed `uv.lock` pins development tools, not consumer dependencies. Change
 constraints in `pyproject.toml` deliberately and regenerate the lock using
 `uv lock`; for a targeted update use `uv lock --upgrade-package <name>`. Commit
-both files and re-run the checks. Do not hand-edit the lock. The former `[dev]`
-extra is now a standard development dependency group; use `uv sync`, not an
-installation of `ordered-btree[dev]`.
+both files and re-run the checks. Do not hand-edit the lock. Development tools
+are a standard dependency group; use `uv sync`, not an installation of
+`ordered-btree[dev]`. The build backend is pinned separately in `[build-system]`;
+update that pin deliberately and repeat the independent artifact round trip.
 
 ## Changes and regression tests
 
@@ -60,17 +61,24 @@ installation of `ordered-btree[dev]`.
 Lint and format only the directories in the commands above. Keep generated
 validation logs and local working notes separate from the public documentation.
 
-## Review and public repository setup
+## Review and repository policy
 
 Keep pull requests focused. Provide the reproducer, exact commands/runtime, and
 actual results; disclose skipped checks. Do not submit credentials, caches,
 environments, generated artifacts, local agent instructions or raw run logs.
 
-Before the repository is made public, the maintainer should enable branch
-protection or a ruleset requiring CI/review, secret scanning and push protection
-where available, private vulnerability reporting, and restricted Actions
-permissions. Review fork-PR settings: untrusted PR code must not get secrets or
-write permissions. CODEOWNERS and CI files alone do not enable those settings.
+Contribute through issues and fork pull requests. Only the owner or explicitly
+trusted collaborators can merge upstream. Protected `main` requires a PR,
+resolved conversations, an up-to-date branch and the exact **CI required** Actions
+check; administrators have no bypass. There is no mandatory second reviewer,
+which keeps ordinary PR merges usable by a solo maintainer.
+
+CI runs on branch pushes, PRs and manual requests; release tags call the same CI
+for their exact commit. The required aggregate fails on failure, cancellation or
+unexpectedly skipped jobs. Workflow syntax (including the normally dormant release
+workflow) is checked with checksum-pinned actionlint. Untrusted PR code gets no
+write permissions, publishing identity or package credentials. These controls
+also depend on remote rules/environment settings; files alone do not enable them.
 
 The source archive omits GitHub configuration; use a repository checkout or
 project ZIP for repository administration. Build verification still works from
@@ -78,7 +86,8 @@ the source archive.
 
 ## Releases
 
-Follow [releasing](docs/releasing.md). A successful build or metadata check is not
-permission to create a remote, push, tag or upload a package. There is no automatic
-publication workflow. Release artifacts are generated in fresh directories;
-never upload a wildcard containing old files.
+Follow [releasing](docs/releasing.md). A successful local build or metadata check
+is not production approval or proof of publication. Direct upstream version tags
+run protected-main checks and reusable CI, publish the immutable artifacts to
+TestPyPI, verify them, and then wait for the owner's production approval. Never
+retag or substitute a rebuilt payload during recovery.

@@ -157,9 +157,10 @@ GitHub configuration belongs to the repository/project ZIP, not the installed
 package. Generated evidence, virtual environments and local agent instructions
 are excluded from Git and release artifacts.
 
-The license is MIT and the distribution name is `ordered-btree`. Explicit
-publication safeguards remain until the owner authorizes publishing; local build
-and validation success are independent of that authorization.
+The license is MIT and the distribution name is `ordered-btree`. Release
+publication is gated by protected-main provenance, complete CI, TestPyPI
+verification and explicit production-environment approval. Local build and
+validation success are not proof of remote publication.
 
 ## Primary references
 

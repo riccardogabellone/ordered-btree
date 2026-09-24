@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ordered-btree"
-version = "0.1.0a1"
+version = "0.1.0"
 description = "A typed generic ordered-key B-tree with encapsulated mutation and fail-fast iterators"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,10 +13,7 @@ keywords = ["btree", "b-tree", "ordered-set", "data-structures", "typing"]
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{name = "Riccardo Gabellone"}]
-# Public repository creation and package publication are not yet authorized.
-# Remove the Private classifier only after completing docs/releasing.md.
 classifiers = [
-    "Private :: Do Not Upload",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3 :: Only",
@@ -26,6 +23,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
+
+[project.urls]
+Repository = "https://github.com/riccardogabellone/ordered-btree"
+Issues = "https://github.com/riccardogabellone/ordered-btree/issues"
+Documentation = "https://github.com/riccardogabellone/ordered-btree/tree/main/docs"
+Changelog = "https://github.com/riccardogabellone/ordered-btree/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
@@ -78,4 +81,4 @@ members = []
 
 [tool.ordered-btree.release]
 name-confirmed = true
-publication-approved = false
+publication-approved = true

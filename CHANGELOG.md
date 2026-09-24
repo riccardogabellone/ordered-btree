@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.1.0a1 — unpublished alpha
+## 0.1.0 — initial release preparation
+
+Publication is complete only when the corresponding GitHub release and verified
+PyPI files are available. This version retains pre-1.0 compatibility guidance.
 
 ### Library
 
@@ -28,8 +31,12 @@
   timed regions instead of accepting only matching aggregate counts.
 - Archive/metadata/RECORD checks, external uv-environment wheel installation,
   import-origin verification and independent sdist-to-wheel round trips.
-- MIT licensing, contribution/security policies, pinned least-privilege CI and
-  guarded publication preflight. No automated publishing workflow.
+- MIT licensing, name-only authorship and exact repository/documentation links.
+- Protected-main release provenance, fail-closed required CI, immutable artifact
+  handoff and separate direct TestPyPI/PyPI Trusted Publishing jobs with attestations.
+- Exact-hash, missing-file-only recovery; official-index byte verification and
+  token-free, no-dependency isolated installation before release finalization.
+- Pinned setuptools build backend and checksum-pinned workflow syntax validation.
 
 See [validation](docs/validation.md) for checks actually executed and limitations,
 [compatibility](docs/migration.md) for integration guidance, and
