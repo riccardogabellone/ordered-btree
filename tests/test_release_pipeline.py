@@ -77,6 +77,29 @@ def release() -> Any:
     return importlib.import_module("tools.release")
 
 
+class ControlledClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def controlled_clock(monkeypatch: pytest.MonkeyPatch) -> ControlledClock:
+    clock = ControlledClock()
+    monkeypatch.setattr(release(), "time", clock)
+    return clock
+
+
 def manifest(source: Path, pair: Path) -> dict[str, Any]:
     return release().make_manifest(pair, source, git(source, "rev-parse", "HEAD"))
 
@@ -253,55 +276,109 @@ def test_conflicting_index_fails_without_staging_or_retry(
     assert not sleeps
 
 
-def test_index_visibility_is_bounded_and_accepts_eventual_exact_pair(
+def test_post_upload_visibility_can_arrive_after_twelve_polls(
     source: Path,
     pair: Path,
     monkeypatch: pytest.MonkeyPatch,
+    controlled_clock: ControlledClock,
 ) -> None:
     tool = release()
-    values = [HTTPError("https://pypi.org/", 404, "not visible", None, None), index_payload()]
     requests = []
-    sleeps = []
 
     def fetch(url: str, limit: int) -> bytes:
         requests.append((url, limit))
-        result = values.pop(0)
-        if isinstance(result, Exception):
-            raise result
-        return json.dumps(result).encode()
+        if len(requests) <= 13:
+            raise HTTPError(url, 404, "not visible", None, None)
+        return json.dumps(index_payload()).encode()
 
     monkeypatch.setattr(tool, "fetch", fetch)
-    monkeypatch.setattr(tool.time, "sleep", sleeps.append)
-    result = tool.wait_for_index("pypi", manifest(source, pair), source, complete=True, attempts=2)
+    result = tool.wait_for_index("pypi", manifest(source, pair), source, complete=True)
     assert set(result) == {WHEEL, SDIST}
     assert requests[0][0] == "https://pypi.org/pypi/ordered-btree/0.1.0/json"
-    assert len(requests) == 2 and sleeps == [5]
-    monkeypatch.setattr(tool, "fetch", lambda *_args: (_ for _ in ()).throw(URLError("offline")))
-    sleeps.clear()
-    with pytest.raises(ValueError, match="visible|attempt"):
-        tool.wait_for_index("pypi", manifest(source, pair), source, complete=True, attempts=3)
-    assert sleeps == [5, 5]
+    assert len(requests) == 14
+    assert controlled_clock.sleeps == [5] * 13
+    assert controlled_clock.now == 65
 
 
-def test_missing_index_version_can_stage_but_never_verify(
+def test_post_upload_visibility_deadline_has_only_bounded_in_flight_overshoot(
     source: Path,
     pair: Path,
     monkeypatch: pytest.MonkeyPatch,
+    controlled_clock: ControlledClock,
 ) -> None:
     tool = release()
+    requests = []
 
-    def missing(*_args: object) -> bytes:
-        raise HTTPError("https://test.pypi.org/", 404, "absent", None, None)
+    def fetch(url: str, _limit: int) -> bytes:
+        requests.append(url)
+        controlled_clock.advance(30)
+        raise HTTPError(url, 503, "credential=should-not-appear", None, None)
+
+    monkeypatch.setattr(tool, "fetch", fetch)
+    with pytest.raises(ValueError, match=r"300-second.*9 attempts.*HTTP 503") as caught:
+        tool.wait_for_index("pypi", manifest(source, pair), source, complete=True)
+    assert "should-not-appear" not in str(caught.value)
+    assert len(requests) == 9
+    assert controlled_clock.sleeps == [5] * 8
+    assert controlled_clock.now == 310
+    assert controlled_clock.now <= 300 + 30
+
+
+@pytest.mark.parametrize("problem", ["http", "integrity"])
+def test_post_upload_visibility_does_not_retry_permanent_or_integrity_failures(
+    source: Path,
+    pair: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    controlled_clock: ControlledClock,
+    problem: str,
+) -> None:
+    tool = release()
+    requests = []
+    permanent = HTTPError("https://pypi.org/", 403, "forbidden", None, None)
+    payload = index_payload()
+    payload["urls"][0]["digests"]["sha256"] = "0" * 64
+
+    def fetch(url: str, _limit: int) -> bytes:
+        requests.append(url)
+        if problem == "http":
+            raise permanent
+        return json.dumps(payload).encode()
+
+    monkeypatch.setattr(tool, "fetch", fetch)
+    expected = (
+        pytest.raises(HTTPError) if problem == "http" else pytest.raises(ValueError, match="digest")
+    )
+    with expected as caught:
+        tool.wait_for_index("pypi", manifest(source, pair), source, complete=True)
+    if problem == "http":
+        assert caught.value is permanent
+    assert len(requests) == 1
+    assert not controlled_clock.sleeps
+    assert controlled_clock.now == 0
+
+
+def test_preupload_404_reports_all_files_missing_without_retry(
+    source: Path,
+    pair: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    controlled_clock: ControlledClock,
+) -> None:
+    tool = release()
+    requests = []
+
+    def missing(url: str, _limit: int) -> bytes:
+        requests.append(url)
+        raise HTTPError(url, 404, "absent", None, None)
 
     monkeypatch.setattr(tool, "fetch", missing)
-    monkeypatch.setattr(tool.time, "sleep", lambda _: None)
     value = manifest(source, pair)
     upload = source.parent / "upload"
     assert tool.stage_missing(pair, source, value, "testpypi", upload)["missing"] == sorted(
         [WHEEL, SDIST]
     )
-    with pytest.raises(ValueError, match="visible|attempt"):
-        tool.wait_for_index("testpypi", value, source, complete=True, attempts=2)
+    assert len(requests) == 1
+    assert not controlled_clock.sleeps
+    assert controlled_clock.now == 0
 
 
 @pytest.mark.parametrize(

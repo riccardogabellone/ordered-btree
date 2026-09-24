@@ -219,29 +219,52 @@ def wait_for_index(
     project: Path,
     *,
     complete: bool,
-    attempts: int = 12,
 ) -> dict[str, str]:
     require(index in INDEXES, "only official pypi/testpypi indexes are supported")
-    require(1 <= attempts <= 12, "visibility attempts must be between 1 and 12")
     url = f"https://{INDEXES[index][0]}/pypi/{manifest['name']}/{manifest['version']}/json"
-    for attempt in range(attempts):
+    deadline = time.monotonic() + 5 * 60 if complete else None
+    attempt = 0
+    last_transient = "none"
+    while True:
+        if deadline is not None and attempt and time.monotonic() >= deadline:
+            break
+        if deadline is None and attempt >= 12:
+            break
+        attempt += 1
         try:
             data = fetch(url, 2 * 1024 * 1024)
         except HTTPError as error:
             if error.code == 404:
                 if not complete:
                     return {}
-            elif error.code != 429 and not 500 <= error.code < 600:
+                last_transient = "HTTP 404"
+            elif error.code == 429 or 500 <= error.code < 600:
+                last_transient = f"HTTP {error.code}"
+            else:
                 raise
-        except (URLError, TimeoutError, ConnectionError):
-            pass
+        except (URLError, TimeoutError, ConnectionError) as error:
+            last_transient = type(error).__name__
         else:
             files = check_index_json(data, index, manifest, project)
             if not complete or set(files) == set(manifest["files"]):
                 return files
-        if attempt + 1 < attempts:
-            time.sleep(5)
-    raise ValueError(f"{index} exact release not visible after {attempts} attempts")
+            last_transient = f"incomplete file set ({len(files)}/{len(manifest['files'])})"
+        if deadline is None:
+            if attempt < 12:
+                time.sleep(5)
+        else:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(5, remaining))
+    if deadline is not None:
+        raise ValueError(
+            f"{index} exact release not visible within 300-second monotonic visibility budget "
+            f"after {attempt} attempts (last transient: {last_transient})"
+        )
+    raise ValueError(
+        f"{index} exact release unavailable after 12 attempts (last transient: {last_transient})"
+    )
 
 
 def stage_missing(

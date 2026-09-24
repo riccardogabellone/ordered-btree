@@ -1,5 +1,52 @@
 # Executed validation and limits
 
+## Executed release record — 0.1.0, 2026-09-24 UTC
+
+Version 0.1.0 was published from tag `v0.1.0`, which points at protected-`main`
+squash commit `430a5bdf109145f859b80f854f3329822124b6c2`. The release workflow
+(GitHub Actions run 35942881278) ran the reusable CI for that exact commit, built
+one wheel/sdist pair, published it to TestPyPI, verified the indexed bytes and a
+clean isolated installation, paused for the owner's `pypi` environment approval,
+then published the same bytes to PyPI with Sigstore attestations.
+
+Hosted CI on GitHub-hosted `ubuntu-latest` and `windows-latest` runners passed
+three times on this source: the pull request (run 35941314679), `main` after the
+merge (run 35942554654) and the release tag (run 35942881278). Each run executed
+all eight configurations — CPython 3.12, 3.13, 3.14 and free-threaded 3.14 on
+both platforms — with **314 non-stress tests per configuration, zero failures,
+errors or skips, and 100% runtime coverage**, plus the separate exhaustive test,
+full standalone stress, lint/type checks, artifact build/verification and the
+immutable-artifact handoff check. The fail-closed `CI required` check from the
+GitHub Actions app is the merge gate; it emitted a success for every run.
+
+Verified published files, identical on TestPyPI, PyPI and the GitHub release:
+
+```text
+2f3532455b266cd66f06893da5a26dd3a76f2945be43ed5b8ebba29d607aff1a  ordered_btree-0.1.0-py3-none-any.whl
+6dd2dcf5068e92c590a096abf288809e99b338cf3d806b2e1d6704e972481caf  ordered_btree-0.1.0.tar.gz
+acb347b1a303217116f2f13528fcc8b4c6be3f307fc18130c4d099f4844c87cc  manifest.json
+```
+
+The published metadata has no `Requires-Dist`, and its project URLs point back
+to this repository. The repository homepage points to the PyPI project.
+
+**Incident:** the first `verify-pypi` attempt failed at 01:36:30 UTC because the
+exact-version JSON endpoint was not yet visible within the one-minute retry
+window; the upload itself had returned `200 OK` for both files at 01:35:20 UTC.
+Public endpoints served the release by 01:39:14 UTC. Only the failed
+verification and the dependent GitHub-release finalization were rerun; no file
+was rebuilt, re-uploaded or retagged. The post-upload visibility window was
+subsequently extended to a bounded five-minute budget (see
+[releasing](releasing.md)). Raw run logs, downloaded artifacts and parent-side
+index checks are retained locally under `results/github-ci/`,
+`results/github-release/` and `results/release-deployment/`; they are not
+committed.
+
+Limits of this record: hosted runners cover x86-64 Linux and Windows only; no
+macOS, ARM64 or PyPy execution. Passing the free-threaded suite is not a
+shared-instance thread-safety certification. Publication proves the artifact
+provenance chain, not the absence of defects outside the tested contracts.
+
 ## Dated local candidate record — 2026-09-23 UTC
 
 This record predates the public 0.1.0 release preparation. It remains evidence
@@ -141,6 +188,6 @@ ordinary and free-threaded builds rather than trusting a version label.
   validation run performed no remote creation, push, tag, release or package upload.
 
 Those results establish local verification of an identified candidate, not proof
-of publication. The subsequent 0.1.0 preparation has live GitHub metadata and a
-positive local release preflight; it does not retroactively turn this record into
-remote CI evidence. Follow [releasing](releasing.md) for the current gates.
+of publication. The hosted CI runs and the publication itself are recorded in the
+executed release record above; this local record is retained unchanged as the
+evidence it was at the time. Follow [releasing](releasing.md) for the current gates.
