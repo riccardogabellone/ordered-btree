@@ -2,14 +2,32 @@ name: CI
 
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact peeled commit validated by the release caller
+        required: true
+        type: string
+    outputs:
+      distribution_artifact_id:
+        value: ${{ jobs.quality-and-build.outputs.distribution_artifact_id }}
+      evidence_artifact_id:
+        value: ${{ jobs.quality-and-build.outputs.evidence_artifact_id }}
+      manifest_sha256:
+        value: ${{ jobs.quality-and-build.outputs.manifest_sha256 }}
+      source_sha:
+        value: ${{ jobs.quality-and-build.outputs.source_sha }}
 
 permissions:
   contents: read
 
+# A called workflow inherits github.workflow from its caller. Use literal prefixes
+# so the reusable CI cannot cancel/deadlock its own release caller.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ inputs.source_sha || 'branch' }}
   cancel-in-progress: true
 
 jobs:
@@ -25,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
@@ -34,63 +53,215 @@ jobs:
       # uv 0.12.15 can select +gil but does not download that variant spelling.
       - name: Bootstrap standard Python 3.14
         if: matrix.python == '3.14+gil'
-        run: uv python install 3.14
-      - run: uv sync --locked
+        run: |
+          uv python install 3.14
+      - run: |
+          uv sync --locked
       - name: Record interpreter
-        run: uv run --locked python -c "import platform, sys, sysconfig; print(sys.version); print(platform.platform()); print('Py_GIL_DISABLED:', sysconfig.get_config_var('Py_GIL_DISABLED')); print('GIL enabled:', getattr(sys, '_is_gil_enabled', lambda: True)())"
+        run: |
+          uv run --locked python -c "import platform, sys, sysconfig; print(sys.version); print(platform.platform()); print('Py_GIL_DISABLED:', sysconfig.get_config_var('Py_GIL_DISABLED')); print('GIL enabled:', getattr(sys, '_is_gil_enabled', lambda: True)())"
       - name: Require GIL-enabled runtime
         if: ${{ !endsWith(matrix.python, 't') }}
-        run: uv run --locked python -c "import sys; assert getattr(sys, '_is_gil_enabled', lambda: True)()"
+        run: |
+          uv run --locked python -c "import sys, sysconfig; assert not sysconfig.get_config_var('Py_GIL_DISABLED'); assert getattr(sys, '_is_gil_enabled', lambda: True)()"
       - name: Require free-threaded runtime
         if: endsWith(matrix.python, 't')
-        run: uv run --locked python -c "import sys; assert not sys._is_gil_enabled()"
-      - run: uv run --locked coverage run -m pytest -q -m "not stress" --junitxml=results/ci/pytest.xml
-      - run: uv run --locked coverage report --fail-under=99
-      - run: uv run --locked coverage json -o results/ci/coverage.json
-      - run: uv run --locked python tools/stress.py --quick --output results/ci/stress-quick.json
-      - run: uv run --locked python examples/basic.py
-      - run: uv run --locked python examples/records.py
-      - run: uv run --locked python examples/synchronized.py
+        run: |
+          uv run --locked python -c "import sys, sysconfig; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled()"
+      - run: |
+          uv run --locked coverage run -m pytest -q -m "not stress" --hypothesis-seed=12983 --junitxml=results/ci/pytest.xml
+      - run: |
+          uv run --locked coverage report --fail-under=99
+      - run: |
+          uv run --locked coverage json -o results/ci/coverage.json
+      - run: |
+          uv run --locked python tools/stress.py --quick --output results/ci/stress-quick.json
+      - run: |
+          uv run --locked python examples/basic.py
+      - run: |
+          uv run --locked python examples/records.py
+      - run: |
+          uv run --locked python examples/synchronized.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: checks-${{ matrix.os }}-${{ matrix.python }}
+          name: checks-${{ matrix.os }}-${{ matrix.python }}-${{ github.run_attempt }}
           path: results/ci/
           if-no-files-found: ignore
           retention-days: 14
 
   quality-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read # Read only this run's original artifact identities on recovery.
+    outputs:
+      distribution_artifact_id: ${{ steps.upload-dist.outputs.artifact-id || steps.originals.outputs.dist_id }}
+      evidence_artifact_id: ${{ steps.upload-evidence.outputs.artifact-id || steps.originals.outputs.evidence_id }}
+      manifest_sha256: ${{ steps.manifest.outputs.manifest_sha256 }}
+      source_sha: ${{ inputs.source_sha || github.sha }}
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: '0.12.15'
           python-version: '3.14+gil'
           enable-cache: false
-      - run: uv python install 3.14
-      - run: uv sync --locked
-      - run: uv lock --check
-      - run: uv run --locked ruff check src examples tests tools benchmarks
-      - run: uv run --locked ruff format --check src examples tests tools benchmarks
-      - run: uv run --locked mypy
-      - run: uv run --locked pytest -q -m stress
-      - run: uv run --locked python tools/stress.py --output results/ci/stress-full.json
-      - run: uv build --no-create-gitignore --out-dir dist/candidate
-      - run: uv run --locked twine check --strict dist/candidate/*
-      - run: uv run --locked python tools/verify_dist.py dist/candidate > results/ci/artifact-verification.json
-      - name: Require publication guard
+      - run: |
+          uv python install 3.14
+          uv sync --locked
+          mkdir -p results/ci
+      - name: Validate every workflow with checksum-pinned actionlint
         run: |
-          uv run --locked python -c "import pathlib, tomllib; p=tomllib.loads(pathlib.Path('pyproject.toml').read_text()); assert 'Private :: Do Not Upload' in p['project']['classifiers']; assert p['tool']['ordered-btree']['release']['publication-approved'] is False"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --max-time 60 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o "$archive"
+          printf '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  %s\n' "$archive" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/actionlint"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/actionlint" actionlint
+          "$RUNNER_TEMP/actionlint/actionlint" -shellcheck= -pyflakes= .github/workflows/*.yml
+      - run: |
+          uv lock --check
+          uv run --locked ruff check src examples tests tools benchmarks
+          uv run --locked ruff format --check src examples tests tools benchmarks
+          uv run --locked mypy
+          uv run --locked mypy --strict --explicit-package-bases tools/release.py
+          uv run --locked python tools/check_release.py
+      - run: |
+          uv run --locked pytest -q -m stress
+          uv run --locked python tools/stress.py --output results/ci/stress-full.json
+      - name: Locate retained originals on a rerun; never rebuild a release payload
+        id: originals
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          run = os.environ['GITHUB_RUN_ID']
+          names = {'dist_id': f'distributions-{run}', 'evidence_id': f'release-evidence-{run}'}
+          outputs = {'fresh': 'true'}
+          if os.environ['GITHUB_RUN_ATTEMPT'] != '1':
+              pages = json.loads(subprocess.check_output([
+                  'gh', 'api', '--paginate', '--slurp',
+                  f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run}/artifacts?per_page=100"
+              ], text=True))
+              matches = {key: [a for page in pages for a in page['artifacts'] if a['name'] == name]
+                         for key, name in names.items()}
+              if any(matches.values()) or os.environ['GITHUB_REF_TYPE'] == 'tag':
+                  if not all(len(items) == 1 and not items[0]['expired'] for items in matches.values()):
+                      raise SystemExit('Original release artifacts absent/incomplete/expired; STOP, do not rebuild or retag.')
+                  outputs = {'fresh': 'false', **{key: str(items[0]['id']) for key, items in matches.items()}}
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as stream:
+              for key, value in outputs.items():
+                  stream.write(f'{key}={value}\n')
+          PY
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: steps.originals.outputs.fresh == 'false'
         with:
-          name: source-and-build-checks
-          path: |
-            dist/candidate/
-            results/ci/
+          artifact-ids: ${{ steps.originals.outputs.dist_id }}
+          merge-multiple: true
+          path: dist/candidate
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: steps.originals.outputs.fresh == 'false'
+        with:
+          artifact-ids: ${{ steps.originals.outputs.evidence_id }}
+          merge-multiple: true
+          path: retained-evidence
+      - name: Build and verify the sole publication pair
+        if: steps.originals.outputs.fresh == 'true'
+        run: |
+          uv build --no-create-gitignore --out-dir dist/candidate
+          uv run --locked twine check --strict dist/candidate/*
+          uv run --locked python tools/verify_dist.py dist/candidate > results/ci/artifact-verification.json
+      - name: Bind the pair to source and checksum manifest
+        id: manifest
+        env:
+          FRESH: ${{ steps.originals.outputs.fresh }}
+        run: |
+          if [[ "$FRESH" == true ]]; then
+            uv run --locked python tools/release.py manifest --dist dist/candidate --sha "$SOURCE_SHA" \
+              --output results/ci/manifest.json >> "$GITHUB_OUTPUT"
+          else
+            digest=$(python3 -c "import hashlib; print(hashlib.sha256(open('retained-evidence/manifest.json', 'rb').read()).hexdigest())")
+            uv run --locked python tools/release.py check --dist dist/candidate --sha "$SOURCE_SHA" \
+              --manifest retained-evidence/manifest.json --manifest-sha256 "$digest" --report results/ci/recovery.json
+            printf 'manifest_sha256=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload-evidence
+        if: steps.originals.outputs.fresh == 'true'
+        with:
+          name: release-evidence-${{ github.run_id }}
+          path: results/ci/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload-dist
+        if: steps.originals.outputs.fresh == 'true'
+        with:
+          name: distributions-${{ github.run_id }}
+          path: dist/candidate/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: quality-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: results/ci/
           if-no-files-found: ignore
           retention-days: 14
+
+  handoff:
+    name: Verify immutable artifact handoff
+    needs: quality-and-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.quality-and-build.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.quality-and-build.outputs.distribution_artifact_id }}
+          merge-multiple: true
+          path: downloaded-dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.quality-and-build.outputs.evidence_artifact_id }}
+          merge-multiple: true
+          path: downloaded-evidence
+      - name: Check flat layout, exact source, version and hashes after download
+        env:
+          SOURCE_SHA: ${{ needs.quality-and-build.outputs.source_sha }}
+          MANIFEST_SHA256: ${{ needs.quality-and-build.outputs.manifest_sha256 }}
+        run: |
+          python3 tools/release.py check --dist downloaded-dist --sha "$SOURCE_SHA" \
+            --manifest downloaded-evidence/manifest.json --manifest-sha256 "$MANIFEST_SHA256"
+
+  required:
+    name: CI required
+    needs: [test, quality-and-build, handoff]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed on failed, cancelled or skipped required jobs
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = {name: job['result'] for name, job in json.loads(os.environ['NEEDS']).items()}
+          print(results)
+          if len(results) != 3 or any(result != 'success' for result in results.values()):
+              raise SystemExit('Required CI did not succeed in full')
+          PY

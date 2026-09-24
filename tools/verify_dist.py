@@ -18,9 +18,11 @@ import tarfile
 import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-if __package__:
+if TYPE_CHECKING:
+    from tools import wheel_smoke
+elif __package__:
     from . import wheel_smoke
 else:
     import wheel_smoke

@@ -13,7 +13,8 @@ from importlib.metadata import version
 print(version("ordered-btree"))
 ```
 
-The release is an alpha. Pin a tested version in applications and read the
+The initial version is 0.1.0; the public API is **pre-1.0**, not a promise of 1.0
+maturity. Pin a tested version in applications and read the
 [changelog](../CHANGELOG.md) before upgrading. There is no stability promise for
 underscore attributes, exact node layouts or diagnostic text formatting.
 
