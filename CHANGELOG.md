@@ -1,9 +1,18 @@
 # Changelog
 
-## 0.1.0 — initial release preparation
+## Unreleased
 
-Publication is complete only when the corresponding GitHub release and verified
-PyPI files are available. This version retains pre-1.0 compatibility guidance.
+- Post-upload index verification now waits up to five minutes for the exact
+  version to become visible instead of one minute. The first 0.1.0 verification
+  attempt timed out while PyPI was still indexing and was rerun without any
+  re-upload; the published files were never affected.
+
+## 0.1.0 — 2026-09-24
+
+Published on [PyPI](https://pypi.org/project/ordered-btree/0.1.0/) from the
+[v0.1.0 GitHub release](https://github.com/riccardogabellone/ordered-btree/releases/tag/v0.1.0)
+after TestPyPI verification and the owner's production approval. This version
+retains pre-1.0 compatibility guidance.
 
 ### Library
 

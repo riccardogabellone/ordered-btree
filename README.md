@@ -4,13 +4,12 @@ A pure-Python, typed, generic **ordered collection of unique keys**, with a B-tr
 storage engine. Python **3.12+**, including Python 3.14. No runtime dependencies.
 Licensed under [MIT](https://github.com/riccardogabellone/ordered-btree/blob/main/LICENSE).
 
-The distribution is `ordered-btree`; the import is `ordered_btree`. Version
-**0.1.0** is prepared as the initial public release. This is a **pre-1.0 API**:
-pin a tested version and review the changelog before upgrading. Check
-[GitHub releases](https://github.com/riccardogabellone/ordered-btree/releases)
-for completed releases and their PyPI links; a source checkout is not proof of
-publication. See [releasing](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/releasing.md)
-for the TestPyPI verification and production-approval gates.
+The distribution is [`ordered-btree` on PyPI](https://pypi.org/project/ordered-btree/);
+the import is `ordered_btree`. Version **0.1.0** is the initial public release,
+published from the [v0.1.0 GitHub release](https://github.com/riccardogabellone/ordered-btree/releases/tag/v0.1.0).
+This is a **pre-1.0 API**: pin a tested version and review the changelog before
+upgrading. See [releasing](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/releasing.md)
+for how releases are verified on TestPyPI and approved before PyPI.
 
 ## Highlights
 
@@ -30,14 +29,13 @@ remote run has completed. See [contributing](https://github.com/riccardogabellon
 
 ## Installation
 
-After the version is published and verified on
-[PyPI](https://pypi.org/project/ordered-btree/), applications can install it with:
+Install the published release from [PyPI](https://pypi.org/project/ordered-btree/):
 
 ```bash
 python -m pip install ordered-btree==0.1.0
 ```
 
-Until then, install from source or the verified local wheel below. For development,
+Installing from source or a locally built wheel also works. For development,
 use [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.12.15 or newer.
 The following commands work from the project directory on Windows, Linux and
 macOS; no shell activation is needed:
@@ -315,7 +313,8 @@ first-wins ordering equivalence, fail-fast iteration, explicit external locking,
 `None` reserved, and Python 3.12+ compatibility. See [design](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/design.md) and
 [compatibility](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/migration.md) before depending on pre-1.0 API stability.
 
-The project is MIT licensed. Publication uses the verified wheel/sdist pair from
-CI, first on TestPyPI and then on PyPI after the owner's production approval.
-Only completed remote runs and index checks establish publication; local checks
-do not claim that those steps have happened.
+The project is MIT licensed. Each release publishes the verified wheel/sdist pair
+from CI, first on TestPyPI and then on PyPI after the owner's production approval.
+Version 0.1.0 completed that process on 2026-09-24; see the
+[validation record](https://github.com/riccardogabellone/ordered-btree/blob/main/docs/validation.md)
+for the executed runs and verified file hashes.
