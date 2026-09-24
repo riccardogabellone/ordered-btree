@@ -272,6 +272,21 @@ def stage_missing(
     }
 
 
+def _download_distribution(url: str) -> bytes:
+    """Bound transient CDN failures like index visibility; never retry invalid bytes/URLs."""
+    for attempt in range(12):
+        try:
+            return fetch(url, wheel_smoke.MAX_UNPACKED_BYTES)
+        except HTTPError as error:
+            if error.code not in {404, 429} and not 500 <= error.code < 600:
+                raise
+        except (URLError, TimeoutError, ConnectionError):
+            pass
+        if attempt + 1 < 12:
+            time.sleep(5)
+    raise ValueError(f"distribution download unavailable after 12 attempts: {url}")
+
+
 def verify_index(
     directory: Path,
     project: Path,
@@ -285,7 +300,7 @@ def verify_index(
     with tempfile.TemporaryDirectory(prefix="ordered-btree-index-") as temporary:
         downloaded = Path(temporary)
         for name, url in files.items():
-            data = fetch(url, wheel_smoke.MAX_UNPACKED_BYTES)
+            data = _download_distribution(url)
             expected = manifest["files"][name]
             require(
                 len(data) == expected["size"] and wheel_smoke.sha256(data) == expected["sha256"],

@@ -319,28 +319,106 @@ def test_network_rejects_nonofficial_or_credentialed_urls_without_io(url: str) -
         release().fetch(url, 100)
 
 
+@pytest.mark.parametrize("content", [b"corrupted", b"wrong"])
 def test_index_download_checks_actual_bytes_not_only_json(
     source: Path,
     pair: Path,
     monkeypatch: pytest.MonkeyPatch,
+    content: bytes,
 ) -> None:
     tool = release()
-    monkeypatch.setattr(
-        tool,
-        "fetch",
-        lambda url, _limit: (
-            json.dumps(index_payload()).encode() if url.endswith("/json") else b"corrupted"
-        ),
-    )
+    downloads = []
+    sleeps = []
+
+    def fetch(url: str, _limit: int) -> bytes:
+        if url.endswith("/json"):
+            return json.dumps(index_payload()).encode()
+        downloads.append(url)
+        return content
+
+    monkeypatch.setattr(tool, "fetch", fetch)
+    monkeypatch.setattr(tool.time, "sleep", sleeps.append)
     with pytest.raises(ValueError, match="download|digest"):
         tool.verify_index(pair, source, manifest(source, pair), "pypi", {"commands": []})
+    assert len(downloads) == 1
+    assert not sleeps
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        HTTPError("https://files.pythonhosted.org/", 404, "not visible", None, None),
+        HTTPError("https://files.pythonhosted.org/", 429, "rate limited", None, None),
+        HTTPError("https://files.pythonhosted.org/", 503, "unavailable", None, None),
+        URLError("offline"),
+        TimeoutError("timed out"),
+        ConnectionError("connection lost"),
+    ],
+)
+def test_distribution_download_retries_are_bounded(
+    source: Path,
+    pair: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+) -> None:
+    tool = release()
+    downloads = []
+    sleeps = []
+
+    def fetch(url: str, _limit: int) -> bytes:
+        if url.endswith("/json"):
+            return json.dumps(index_payload()).encode()
+        downloads.append(url)
+        raise error
+
+    monkeypatch.setattr(tool, "fetch", fetch)
+    monkeypatch.setattr(tool.time, "sleep", sleeps.append)
+    with pytest.raises(ValueError, match="download.*12 attempts"):
+        tool.verify_index(pair, source, manifest(source, pair), "pypi", {"commands": []})
+    assert downloads == [f"https://files.pythonhosted.org/packages/{WHEEL}"] * 12
+    assert sleeps == [5] * 11
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        HTTPError("https://files.pythonhosted.org/", 403, "forbidden", None, None),
+        ValueError("expected an official, credential-free index URL"),
+        ValueError("index response exceeds verification size limit"),
+    ],
+)
+def test_distribution_download_does_not_retry_permanent_failures(
+    source: Path,
+    pair: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+) -> None:
+    tool = release()
+    downloads = []
+    sleeps = []
+
+    def fetch(url: str, _limit: int) -> bytes:
+        if url.endswith("/json"):
+            return json.dumps(index_payload()).encode()
+        downloads.append(url)
+        raise error
+
+    monkeypatch.setattr(tool, "fetch", fetch)
+    monkeypatch.setattr(tool.time, "sleep", sleeps.append)
+    with pytest.raises(type(error)) as caught:
+        tool.verify_index(pair, source, manifest(source, pair), "pypi", {"commands": []})
+    assert caught.value is error
+    assert len(downloads) == 1
+    assert not sleeps
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv required for isolated installation")
+@pytest.mark.parametrize("transient_file", [None, WHEEL, SDIST])
 def test_real_index_bytes_install_offline_without_source_or_dependencies(
     source: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    transient_file: str | None,
 ) -> None:
     tool = release()
     dist = tmp_path / "built"
@@ -369,15 +447,23 @@ def test_real_index_bytes_install_offline_without_source_or_dependencies(
         item["digests"]["sha256"] = value["files"][item["filename"]]["sha256"]
         item["size"] = value["files"][item["filename"]]["size"]
 
+    downloads = []
+    sleeps = []
+
     def fetch(url: str, limit: int) -> bytes:
         if url == "https://test.pypi.org/pypi/ordered-btree/0.1.0/json":
             return json.dumps(payload).encode()
         assert url.startswith("https://test-files.pythonhosted.org/packages/")
-        data = (dist / url.rsplit("/", 1)[1]).read_bytes()
+        name = url.rsplit("/", 1)[1]
+        downloads.append(name)
+        if name == transient_file and downloads.count(name) == 1:
+            raise HTTPError(url, 503, "temporarily unavailable", None, None)
+        data = (dist / name).read_bytes()
         assert len(data) <= limit
         return data
 
     monkeypatch.setattr(tool, "fetch", fetch)
+    monkeypatch.setattr(tool.time, "sleep", sleeps.append)
     monkeypatch.setenv("GITHUB_TOKEN", "never-inherit-this-token")
     report: dict[str, Any] = {"commands": []}
     tool.verify_index(dist, source, value, "testpypi", report)
@@ -391,3 +477,6 @@ def test_real_index_bytes_install_offline_without_source_or_dependencies(
     assert not Path(report["installed"]["smoke"]["package_file"]).is_relative_to(source)
     install = report["commands"][1]["argv"]
     assert "--offline" in install and "--no-deps" in install and "--no-index" in install
+    assert downloads.count(WHEEL) == (2 if transient_file == WHEEL else 1)
+    assert downloads.count(SDIST) == (2 if transient_file == SDIST else 1)
+    assert sleeps == ([5] if transient_file else [])
