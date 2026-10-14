@@ -162,13 +162,13 @@ jobs:
               for key, value in outputs.items():
                   stream.write(f'{key}={value}\n')
           PY
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: steps.originals.outputs.fresh == 'false'
         with:
           artifact-ids: ${{ steps.originals.outputs.dist_id }}
           merge-multiple: true
           path: dist/candidate
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: steps.originals.outputs.fresh == 'false'
         with:
           artifact-ids: ${{ steps.originals.outputs.evidence_id }}
@@ -229,12 +229,12 @@ jobs:
         with:
           ref: ${{ needs.quality-and-build.outputs.source_sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.quality-and-build.outputs.distribution_artifact_id }}
           merge-multiple: true
           path: downloaded-dist
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.quality-and-build.outputs.evidence_artifact_id }}
           merge-multiple: true
