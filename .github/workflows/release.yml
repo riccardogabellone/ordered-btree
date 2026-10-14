@@ -36,7 +36,7 @@ jobs:
           python3 tools/check_release.py
           python3 tools/release.py provenance --ref "$RELEASE_REF" --sha "$EVENT_SHA" \
             --report results/provenance.json >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: provenance-${{ github.run_id }}-${{ github.run_attempt }}
@@ -95,7 +95,7 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: upload/
           attestations: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: testpypi-stage-${{ github.run_id }}-${{ github.run_attempt }}
@@ -134,7 +134,7 @@ jobs:
           python3 tools/release.py verify-index --index testpypi --dist original-dist --sha "$SOURCE_SHA" \
             --manifest evidence/manifest.json --manifest-sha256 "$MANIFEST_SHA256" \
             --report results/testpypi-verification.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: testpypi-verification-${{ github.run_id }}-${{ github.run_attempt }}
@@ -183,7 +183,7 @@ jobs:
         with:
           packages-dir: upload/
           attestations: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: pypi-stage-${{ github.run_id }}-${{ github.run_attempt }}
@@ -222,7 +222,7 @@ jobs:
           python3 tools/release.py verify-index --index pypi --dist original-dist --sha "$SOURCE_SHA" \
             --manifest evidence/manifest.json --manifest-sha256 "$MANIFEST_SHA256" \
             --report results/pypi-verification.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: pypi-verification-${{ github.run_id }}-${{ github.run_attempt }}

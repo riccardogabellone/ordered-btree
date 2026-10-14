@@ -82,7 +82,7 @@ jobs:
           uv run --locked python examples/records.py
       - run: |
           uv run --locked python examples/synchronized.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: checks-${{ matrix.os }}-${{ matrix.python }}-${{ github.run_attempt }}
@@ -194,7 +194,7 @@ jobs:
               --manifest retained-evidence/manifest.json --manifest-sha256 "$digest" --report results/ci/recovery.json
             printf 'manifest_sha256=%s\n' "$digest" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: upload-evidence
         if: steps.originals.outputs.fresh == 'true'
         with:
@@ -202,7 +202,7 @@ jobs:
           path: results/ci/
           if-no-files-found: error
           retention-days: 90
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: upload-dist
         if: steps.originals.outputs.fresh == 'true'
         with:
@@ -211,7 +211,7 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: quality-failure-${{ github.run_id }}-${{ github.run_attempt }}
