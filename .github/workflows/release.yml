@@ -90,7 +90,7 @@ jobs:
       # OIDC must run directly in release.yml: both Trusted Publishers bind it.
       - name: Publish to TestPyPI with attestations
         if: steps.stage.outputs.missing_count != '0'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: upload/
@@ -179,7 +179,7 @@ jobs:
             --upload-dir upload --report results/pypi-stage.json >> "$GITHUB_OUTPUT"
       - name: Publish to PyPI with attestations
         if: steps.stage.outputs.missing_count != '0'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: upload/
           attestations: true
